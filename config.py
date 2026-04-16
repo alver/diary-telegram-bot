@@ -19,8 +19,7 @@ DIARY_CHAT_ID: int = int(os.getenv("DIARY_CHAT_ID", "0"))
 AUDIO_DIR: str = os.getenv("AUDIO_DIR", "storage/audio")
 ARCHIVE_DIR: str = os.getenv("ARCHIVE_DIR", "storage/archive")
 DIARY_DIR: str = os.getenv("DIARY_DIR", "storage/diary")
-MOOD_CSV: str = os.getenv("MOOD_CSV", "storage/mood.csv")  # legacy single-scale mood log (unused by new flow)
-MOOD_ENTRIES_CSV: str = os.getenv("MOOD_ENTRIES_CSV", "storage/mood_entries.csv")
+MOOD_CSV: str = os.getenv("MOOD_CSV", "storage/mood_entries.csv")
 SLEEP_CSV: str = os.getenv("SLEEP_CSV", "storage/sleep.csv")
 
 # Transcription
