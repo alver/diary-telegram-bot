@@ -19,7 +19,9 @@ DIARY_CHAT_ID: int = int(os.getenv("DIARY_CHAT_ID", "0"))
 AUDIO_DIR: str = os.getenv("AUDIO_DIR", "storage/audio")
 ARCHIVE_DIR: str = os.getenv("ARCHIVE_DIR", "storage/archive")
 DIARY_DIR: str = os.getenv("DIARY_DIR", "storage/diary")
-MOOD_CSV: str = os.getenv("MOOD_CSV", "storage/mood.csv")
+MOOD_CSV: str = os.getenv("MOOD_CSV", "storage/mood.csv")  # legacy single-scale mood log (unused by new flow)
+MOOD_ENTRIES_CSV: str = os.getenv("MOOD_ENTRIES_CSV", "storage/mood_entries.csv")
+SLEEP_CSV: str = os.getenv("SLEEP_CSV", "storage/sleep.csv")
 
 # Transcription
 TRANSCRIPTION_SERVICE: str = os.getenv("TRANSCRIPTION_SERVICE", "whisper_local")
@@ -43,12 +45,29 @@ WHISPER_VAD_SPEECH_PAD_MS: str = os.getenv("WHISPER_VAD_SPEECH_PAD_MS", "").stri
 # Path to the ffmpeg executable. Leave as "ffmpeg" to rely on PATH.
 FFMPEG_EXE: str = os.getenv("FFMPEG_EXE", "ffmpeg")
 
-# Mood check schedule — comma-separated HH:MM values (24h)
-_mood_times_raw: str = os.getenv("MOOD_CHECK_TIMES", "09:00,15:00,21:00")
+# Mood check schedule — comma-separated HH:MM values (24h).
+# These are BASE times; actual pings fire at a random offset within ±PING_WINDOW_MINUTES.
+_mood_times_raw: str = os.getenv("MOOD_PING_TIMES", os.getenv("MOOD_CHECK_TIMES", "09:00,15:00,21:00"))
 _LOCAL_TZ = datetime.now().astimezone().tzinfo
-MOOD_CHECK_TIMES: list[time] = []
-for _t in _mood_times_raw.split(","):
-    _t = _t.strip()
-    if _t:
-        _h, _m = _t.split(":")
-        MOOD_CHECK_TIMES.append(time(int(_h), int(_m), tzinfo=_LOCAL_TZ))
+
+
+def _parse_time(s: str) -> time:
+    h, m = s.split(":")
+    return time(int(h), int(m), tzinfo=_LOCAL_TZ)
+
+
+MOOD_CHECK_TIMES: list[time] = [
+    _parse_time(t.strip()) for t in _mood_times_raw.split(",") if t.strip()
+]
+
+# Daily sleep-quality question — fixed time (not randomized: it's an anchor for the morning).
+SLEEP_QUESTION_TIME: time = _parse_time(os.getenv("SLEEP_QUESTION_TIME", "09:00").strip())
+
+# Randomization window around each base mood time (± minutes).
+PING_WINDOW_MINUTES: int = int(os.getenv("PING_WINDOW_MINUTES", "90"))
+
+# Pings become unanswerable after this many minutes; late taps are rejected.
+RESPONSE_TIMEOUT_MINUTES: int = int(os.getenv("RESPONSE_TIMEOUT_MINUTES", "120"))
+
+# Minimum enforced gap when randomizing adjacent pings (re-rolled until satisfied).
+MIN_GAP_BETWEEN_PINGS_MINUTES: int = int(os.getenv("MIN_GAP_BETWEEN_PINGS_MINUTES", "120"))

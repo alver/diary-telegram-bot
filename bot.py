@@ -14,7 +14,9 @@ from telegram.ext import (
 
 import config
 from handlers.messages import handle_audio, handle_text, handle_voice
-from handlers.mood import MOOD_KEYBOARD, handle_mood_callback, send_mood_check
+from handlers.mood import cmd_mood_manual, handle_mood_callback
+from handlers.scheduler import schedule_initial
+from handlers.sleep import handle_sleep_callback, send_sleep_check
 from services import audio as audio_svc
 from services import diary as diary_svc
 from services.transcription import get_transcription_service
@@ -52,16 +54,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def cmd_mood(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
-        "How are you feeling right now?",
-        reply_markup=MOOD_KEYBOARD,
-    )
-    # Drop the /mood command itself — the keyboard is deleted after a tap.
-    try:
-        await update.message.delete()
-    except Exception:
-        logger.debug("Could not delete /mood command message", exc_info=True)
+cmd_mood = cmd_mood_manual
 
 
 # ==============
@@ -162,28 +155,35 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.AUDIO & user_filter, handle_audio))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & user_filter, handle_text))
 
-    # Mood button callbacks (CallbackQueryHandler enforces allow-list internally)
-    app.add_handler(CallbackQueryHandler(handle_mood_callback, pattern=r"^mood:"))
+    # Callback handlers (each enforces the allow-list internally).
+    app.add_handler(CallbackQueryHandler(handle_mood_callback, pattern=r"^(val|aro|noop):"))
+    app.add_handler(CallbackQueryHandler(handle_sleep_callback, pattern=r"^slp:"))
 
     # Error handler
     app.add_error_handler(on_error)
 
-    # Schedule periodic mood checks
-    if config.DIARY_CHAT_ID and config.MOOD_CHECK_TIMES:
-        for check_time in config.MOOD_CHECK_TIMES:
-            app.job_queue.run_daily(
-                send_mood_check,
-                time=check_time,
-                chat_id=config.DIARY_CHAT_ID,
+    # Schedule randomized mood pings + daily sleep question.
+    if config.DIARY_CHAT_ID:
+        if config.MOOD_CHECK_TIMES:
+            schedule_initial(app, config.DIARY_CHAT_ID)
+            logger.info(
+                "Mood ping base times: %s (±%d min window, min gap %d min)",
+                ", ".join(t.strftime("%H:%M") for t in config.MOOD_CHECK_TIMES),
+                config.PING_WINDOW_MINUTES,
+                config.MIN_GAP_BETWEEN_PINGS_MINUTES,
             )
+        app.job_queue.run_daily(
+            send_sleep_check,
+            time=config.SLEEP_QUESTION_TIME,
+            chat_id=config.DIARY_CHAT_ID,
+            name="sleep-daily",
+        )
         logger.info(
-            "Mood checks scheduled at: %s",
-            ", ".join(t.strftime("%H:%M") for t in config.MOOD_CHECK_TIMES),
+            "Sleep question scheduled at %s",
+            config.SLEEP_QUESTION_TIME.strftime("%H:%M"),
         )
     else:
-        logger.warning(
-            "Mood checks not scheduled — set DIARY_CHAT_ID and MOOD_CHECK_TIMES in .env"
-        )
+        logger.warning("Scheduled prompts disabled — set DIARY_CHAT_ID in .env")
 
     # Python 3.14 removed implicit event-loop creation; PTB v21's run_polling
     # still calls asyncio.get_event_loop(). Pre-create one so it works on 3.14.

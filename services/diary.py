@@ -40,6 +40,96 @@ def append_mood(timestamp: datetime, level: int, label: str) -> None:
     _append_mood_csv(timestamp, level, label)
 
 
+# ---------------- 2-D mood (valence + arousal) ----------------
+
+MOOD_ENTRY_FIELDS = [
+    "entry_id",
+    "prompt_sent_at",
+    "responded_at",
+    "valence",
+    "arousal",
+    "status",
+]
+
+
+def append_mood_entry(
+    entry_id: str,
+    prompt_sent_at: datetime,
+    responded_at: datetime | None,
+    valence: int | None,
+    arousal: int | None,
+    status: str,
+) -> None:
+    """Write a 2-D mood entry to the mood_entries CSV. Also writes a human-readable
+    line to the daily markdown when the entry is complete or partial."""
+    _append_csv(
+        config.MOOD_ENTRIES_CSV,
+        MOOD_ENTRY_FIELDS,
+        {
+            "entry_id": entry_id,
+            "prompt_sent_at": prompt_sent_at.isoformat(),
+            "responded_at": responded_at.isoformat() if responded_at else "",
+            "valence": valence if valence is not None else "",
+            "arousal": arousal if arousal is not None else "",
+            "status": status,
+        },
+    )
+    if status == "missed":
+        return
+    ts = responded_at or prompt_sent_at
+    v = valence if valence is not None else "—"
+    a = arousal if arousal is not None else "—"
+    _write_entry(ts, f"**Mood check-in:** pleasantness {v}/5, energy {a}/5 ({status})")
+
+
+# ---------------- Sleep quality (PSQI component 1) ----------------
+
+SLEEP_ENTRY_FIELDS = [
+    "entry_id",
+    "prompt_sent_at",
+    "responded_at",
+    "night_of",
+    "sleep_quality",
+    "status",
+]
+
+
+def append_sleep_entry(
+    entry_id: str,
+    prompt_sent_at: datetime,
+    responded_at: datetime | None,
+    night_of,  # datetime.date
+    sleep_quality: int | None,
+    status: str,
+) -> None:
+    _append_csv(
+        config.SLEEP_CSV,
+        SLEEP_ENTRY_FIELDS,
+        {
+            "entry_id": entry_id,
+            "prompt_sent_at": prompt_sent_at.isoformat(),
+            "responded_at": responded_at.isoformat() if responded_at else "",
+            "night_of": night_of.isoformat(),
+            "sleep_quality": sleep_quality if sleep_quality is not None else "",
+            "status": status,
+        },
+    )
+    if status == "missed" or sleep_quality is None:
+        return
+    ts = responded_at or prompt_sent_at
+    _write_entry(ts, f"**Sleep:** night of {night_of.isoformat()} — quality {sleep_quality}/4")
+
+
+def _append_csv(path: str, fieldnames: list[str], row: dict) -> None:
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    file_exists = os.path.exists(path)
+    with open(path, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
+
+
 def _write_entry(timestamp: datetime, body: str) -> None:
     os.makedirs(config.DIARY_DIR, exist_ok=True)
     date_str = timestamp.strftime("%Y-%m-%d")
