@@ -18,7 +18,7 @@ Event-driven Telegram bot built on `python-telegram-bot` v21, long-polling. Entr
 - `bot.py` — app bootstrap, handler registration, startup recovery, scheduler wiring.
 - `config.py` — all settings loaded from `.env`.
 - `handlers/messages.py` — text / voice / audio message handling.
-- `handlers/mood.py` — 2-D mood (valence + arousal) keyboard, callback, per-ping state, timeout expiry.
+- `handlers/mood.py` — 2-D mood (pleasantness + energy) keyboard, callback, per-ping state, timeout expiry.
 - `handlers/sleep.py` — daily PSQI-1 sleep-quality prompt, callback, timeout expiry.
 - `handlers/scheduler.py` — randomized daily mood-ping planner.
 - `services/audio.py` — ffmpeg WAV/MP3 conversion, pending-file tracking, archive path helpers.
@@ -38,11 +38,11 @@ Event-driven Telegram bot built on `python-telegram-bot` v21, long-polling. Entr
 - Transcription error: original download and pending marker are **retained** on disk. User's voice message + progress note are deleted; only the error reply (from `on_error`) remains visible.
 - On next bot start, `_recover_pending()` in `bot.py` walks `.pending` markers and retries transcription.
 
-### Mood flow (2-D: valence + arousal, circumplex model)
+### Mood flow (2-D: pleasantness + energy, circumplex model)
 - `handlers/scheduler.py` plans one `run_once` job per base time in `MOOD_PING_TIMES`, each at a random offset in ±`PING_WINDOW_MINUTES`. Offsets are re-rolled if any adjacent pair is closer than `MIN_GAP_BETWEEN_PINGS_MINUTES`; after 50 failed attempts it clamps. `schedule_initial()` plans today's remaining pings at startup and installs a daily planner job at 00:05 to re-plan each day.
-- `send_mood_check` posts a single message with a two-column inline keyboard (pleasantness 1–5 left, energy 1–5 right; header row uses `noop:0` callbacks). Callback data: `val:{entry_id}:{n}` and `aro:{entry_id}:{n}`, where `entry_id = "m" + YYYYMMDDHHMMSS`.
+- `send_mood_check` posts a single message with a two-column inline keyboard (pleasantness 1–5 left, energy 1–5 right; header row uses `noop:0` callbacks). Callback data: `pls:{entry_id}:{n}` and `nrg:{entry_id}:{n}`, where `entry_id = "m" + YYYYMMDDHHMMSS`.
 - Per-ping state lives in `context.bot_data["pending_mood_pings"][entry_id]` as a `PendingMood` dataclass. Tapping a button in a column replaces any prior selection there and re-renders the keyboard with a ✅ prefix on the active choice.
-- Finalization: once both `valence` and `arousal` are set, the entry is appended to `storage/mood_entries.csv` (status `complete`), the message is edited to the confirmation and deleted after `CONFIRM_TTL` (5s).
+- Finalization: once both `pleasantness` and `energy` are set, the entry is appended to `storage/mood_entries.csv` (status `complete`), the message is edited to the confirmation and deleted after `CONFIRM_TTL` (5s).
 - Timeout: a `run_once` expiry job fires `RESPONSE_TIMEOUT_MINUTES` after send. If the entry is still pending, it's saved with status `partial` (one scale picked) or `missed` (neither), and the message is edited to an expired-notice (removes the keyboard). Late taps on a no-longer-pending entry trigger a `show_alert` "prompt expired" toast.
 - Expired callback queries (>~10 min — old keyboards the user taps late) are still caught silently via `try/except` around `query.answer()` as a defensive layer.
 

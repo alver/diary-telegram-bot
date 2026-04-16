@@ -13,14 +13,14 @@ logger = logging.getLogger(__name__)
 
 CONFIRM_TTL = 5  # seconds to keep the final confirmation visible before deletion
 
-VALENCE_LABELS = {
+PLEASANTNESS_LABELS = {
     5: "😄 Very pleasant",
     4: "🙂 Pleasant",
     3: "😐 Neutral",
     2: "😕 Unpleasant",
     1: "😞 Very unpleasant",
 }
-AROUSAL_LABELS = {
+ENERGY_LABELS = {
     5: "⚡ Very high",
     4: "🔥 High",
     3: "➖ Medium",
@@ -40,8 +40,8 @@ class PendingMood:
     entry_id: str
     chat_id: int
     message_id: int
-    valence: int | None = None
-    arousal: int | None = None
+    pleasantness: int | None = None
+    energy: int | None = None
     timeout_job: object | None = field(default=None, repr=False)
 
 
@@ -49,7 +49,7 @@ def _pending_store(context: ContextTypes.DEFAULT_TYPE) -> dict[str, PendingMood]
     return context.bot_data.setdefault("pending_mood_pings", {})
 
 
-def _build_keyboard(entry_id: str, valence: int | None, arousal: int | None) -> InlineKeyboardMarkup:
+def _build_keyboard(entry_id: str, pleasantness: int | None, energy: int | None) -> InlineKeyboardMarkup:
     def mark(label: str, selected: bool) -> str:
         return f"✅ {label}" if selected else label
 
@@ -60,12 +60,12 @@ def _build_keyboard(entry_id: str, valence: int | None, arousal: int | None) -> 
     for n in range(5, 0, -1):
         rows.append([
             InlineKeyboardButton(
-                mark(VALENCE_LABELS[n], valence == n),
-                callback_data=f"val:{entry_id}:{n}",
+                mark(PLEASANTNESS_LABELS[n], pleasantness == n),
+                callback_data=f"pls:{entry_id}:{n}",
             ),
             InlineKeyboardButton(
-                mark(AROUSAL_LABELS[n], arousal == n),
-                callback_data=f"aro:{entry_id}:{n}",
+                mark(ENERGY_LABELS[n], energy == n),
+                callback_data=f"nrg:{entry_id}:{n}",
             ),
         ])
     return InlineKeyboardMarkup(rows)
@@ -115,7 +115,7 @@ async def handle_mood_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     parts = data.split(":")
-    if len(parts) != 3 or parts[0] not in {"val", "aro"}:
+    if len(parts) != 3 or parts[0] not in {"pls", "nrg"}:
         return
     kind, entry_id, raw = parts
     try:
@@ -135,19 +135,19 @@ async def handle_mood_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             pass
         return
 
-    if kind == "val":
-        pending.valence = value
+    if kind == "pls":
+        pending.pleasantness = value
     else:
-        pending.arousal = value
+        pending.energy = value
 
-    if pending.valence is not None and pending.arousal is not None:
+    if pending.pleasantness is not None and pending.energy is not None:
         await _finalize_complete(context, pending)
         return
 
     # Partial: update keyboard to show the current selection.
     try:
         await query.edit_message_reply_markup(
-            reply_markup=_build_keyboard(entry_id, pending.valence, pending.arousal)
+            reply_markup=_build_keyboard(entry_id, pending.pleasantness, pending.energy)
         )
     except Exception:
         logger.debug("Failed to refresh mood keyboard", exc_info=True)
@@ -157,8 +157,8 @@ async def _finalize_complete(context: ContextTypes.DEFAULT_TYPE, pending: Pendin
     diary_svc.append_mood_entry(
         entry_id=pending.entry_id,
         timestamp=diary_svc.now(),
-        valence=pending.valence,
-        arousal=pending.arousal,
+        pleasantness=pending.pleasantness,
+        energy=pending.energy,
         status="complete",
     )
     _pending_store(context).pop(pending.entry_id, None)
@@ -173,16 +173,16 @@ async def _finalize_complete(context: ContextTypes.DEFAULT_TYPE, pending: Pendin
             chat_id=pending.chat_id,
             message_id=pending.message_id,
             text=(
-                f"Recorded: pleasantness {pending.valence}/5, "
-                f"energy {pending.arousal}/5 ✓"
+                f"Recorded: pleasantness {pending.pleasantness}/5, "
+                f"energy {pending.energy}/5 ✓"
             ),
         )
     except Exception:
         logger.debug("Failed to edit mood prompt to confirmation", exc_info=True)
 
     logger.info(
-        "Mood recorded: entry_id=%s valence=%d arousal=%d",
-        pending.entry_id, pending.valence, pending.arousal,
+        "Mood recorded: entry_id=%s pleasantness=%d energy=%d",
+        pending.entry_id, pending.pleasantness, pending.energy,
     )
 
     asyncio.create_task(_delete_message_later(context, pending.chat_id, pending.message_id))
@@ -196,20 +196,20 @@ async def _expire_mood(context: ContextTypes.DEFAULT_TYPE) -> None:
     if pending is None:
         return
 
-    has_any = pending.valence is not None or pending.arousal is not None
+    has_any = pending.pleasantness is not None or pending.energy is not None
     status = "partial" if has_any else "missed"
 
     diary_svc.append_mood_entry(
         entry_id=pending.entry_id,
         timestamp=diary_svc.now(),
-        valence=pending.valence,
-        arousal=pending.arousal,
+        pleasantness=pending.pleasantness,
+        energy=pending.energy,
         status=status,
     )
 
     note = "⌛ Mood window expired." + (
         f" Saved partial: "
-        f"pleasantness={pending.valence or '—'}, energy={pending.arousal or '—'}"
+        f"pleasantness={pending.pleasantness or '—'}, energy={pending.energy or '—'}"
         if has_any else " No response recorded."
     )
     try:

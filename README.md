@@ -11,7 +11,7 @@ A personal Telegram bot that acts as a daily diary. Send it text notes, voice me
 - **Archive copies** → 32 kbps MP3 of every audio file saved to `storage/archive/` (the filename referenced from the diary)
 - **Clean chat** → after successful processing the bot deletes the user's message and its own replies, keeping the chat at zero items
 - **Crash recovery** → audio left mid-transcription is retried on the next start via `.pending` markers
-- **Mood check-ins (2-D, circumplex model)** → a single keyboard asks for both **pleasantness (valence)** and **energy (arousal)** on 1–5 scales; responses saved to `storage/mood_entries.csv` and to the diary
+- **Mood check-ins (2-D, circumplex model)** → a single keyboard asks for both **pleasantness** and **energy** on 1–5 scales; responses saved to `storage/mood_entries.csv` and to the diary
 - **Randomized ping times** → instead of fixed clock times, each daily ping fires at a random moment within ±`PING_WINDOW_MINUTES` of its base time (re-rolled each day, with an enforced minimum gap between pings) — reduces anticipation bias while keeping a stable daily rhythm
 - **Response timeouts** → each prompt stores both `prompt_sent_at` and `responded_at`; pings unanswered within `RESPONSE_TIMEOUT_MINUTES` are marked `missed` (or `partial` for mood if only one scale was picked), and late taps are rejected with an alert — no reminder pings, no notification fatigue
 - **Sleep quality check** → once per day at a fixed time the bot asks a PSQI component-1 question (Very good / Fairly good / Fairly bad / Very bad); responses saved to `storage/sleep.csv`
@@ -130,7 +130,7 @@ diary_bot/
 ├── config.py                       # All settings loaded from .env
 ├── handlers/
 │   ├── messages.py                 # Incoming text / voice / audio
-│   ├── mood.py                     # 2-D mood (valence + arousal) keyboard, callback, per-ping state
+│   ├── mood.py                     # 2-D mood (pleasantness + energy) keyboard, callback, per-ping state
 │   ├── sleep.py                    # Daily PSQI-1 sleep question + callback
 │   └── scheduler.py                # Randomized daily mood-ping planner
 ├── services/
@@ -193,11 +193,11 @@ The filename points at the 32 kbps archive MP3 in `storage/archive/`. The origin
 
 Each row is one mood ping. The two scales follow the circumplex model of affect (Russell, 1980):
 
-- **valence** — pleasantness, 1 (very unpleasant) → 5 (very pleasant)
-- **arousal** — energy, 1 (very low / sleepy) → 5 (very high / wired)
+- **pleasantness** — 1 (very unpleasant) → 5 (very pleasant)
+- **energy** — 1 (very low / sleepy) → 5 (very high / wired)
 
 ```
-entry_id,prompt_sent_at,responded_at,valence,arousal,status
+entry_id,prompt_sent_at,responded_at,pleasantness,energy,status
 m20260414091532,2026-04-14T09:15:02+02:00,2026-04-14T09:15:32+02:00,4,2,complete
 m20260414143012,2026-04-14T14:30:12+02:00,,,,missed
 m20260414201805,2026-04-14T20:18:05+02:00,2026-04-14T20:21:10+02:00,3,,partial
@@ -214,7 +214,7 @@ entry_id,prompt_sent_at,responded_at,night_of,sleep_quality,status
 s20260414090005,2026-04-14T09:00:05+02:00,2026-04-14T09:01:12+02:00,2026-04-13,2,complete
 ```
 
-Both CSVs are ready to load into pandas, a spreadsheet, or any analysis tool to look for patterns, periodicity, good/bad zones, valence-vs-arousal quadrants, sleep→mood correlations, etc.
+Both CSVs are ready to load into pandas, a spreadsheet, or any analysis tool to look for patterns, periodicity, good/bad zones, pleasantness-vs-energy quadrants, sleep→mood correlations, etc.
 
 ---
 
@@ -234,7 +234,7 @@ Planned backends (not yet implemented):
 
 ## What comes next
 
-- **Mood analysis script** — load `mood_entries.csv` + `sleep.csv`, detect trends and periodicity, plot valence-arousal scatter and sleep→mood correlations
+- **Mood analysis script** — load `mood_entries.csv` + `sleep.csv`, detect trends and periodicity, plot pleasantness-energy scatter and sleep→mood correlations
 - **Weekly/monthly diary summary** — aggregate entries and send a recap via the bot
 - **Search command** — `/search <keyword>` over diary Markdown files
 - **Export command** — send a ZIP of all diary files on demand

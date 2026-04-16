@@ -34,13 +34,13 @@ def append_audio(timestamp: datetime, transcript: str, file_path: str) -> None:
     _write_entry(timestamp, body)
 
 
-# ---------------- 2-D mood (valence + arousal) ----------------
+# ---------------- 2-D mood (pleasantness + energy) ----------------
 
 MOOD_ENTRY_FIELDS = [
     "entry_id",
     "timestamp",
-    "valence",
-    "arousal",
+    "pleasantness",
+    "energy",
     "status",
 ]
 
@@ -48,8 +48,8 @@ MOOD_ENTRY_FIELDS = [
 def append_mood_entry(
     entry_id: str,
     timestamp: datetime,
-    valence: int | None,
-    arousal: int | None,
+    pleasantness: int | None,
+    energy: int | None,
     status: str,
 ) -> None:
     """Write a 2-D mood entry to the mood_entries CSV. Also writes a human-readable
@@ -60,15 +60,15 @@ def append_mood_entry(
         {
             "entry_id": entry_id,
             "timestamp": timestamp.isoformat(),
-            "valence": valence if valence is not None else "",
-            "arousal": arousal if arousal is not None else "",
+            "pleasantness": pleasantness if pleasantness is not None else "",
+            "energy": energy if energy is not None else "",
             "status": status,
         },
     )
     if status == "missed":
         return
-    v = valence if valence is not None else "—"
-    a = arousal if arousal is not None else "—"
+    v = pleasantness if pleasantness is not None else "—"
+    a = energy if energy is not None else "—"
     _write_entry(timestamp, f"**Mood check-in:** pleasantness {v}/5, energy {a}/5 ({status})")
 
 
