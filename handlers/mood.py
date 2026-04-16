@@ -14,18 +14,18 @@ logger = logging.getLogger(__name__)
 CONFIRM_TTL = 5  # seconds to keep the final confirmation visible before deletion
 
 VALENCE_LABELS = {
-    1: "Very unpleasant",
-    2: "Unpleasant",
-    3: "Neutral",
-    4: "Pleasant",
-    5: "Very pleasant",
+    5: "😄 Very pleasant",
+    4: "🙂 Pleasant",
+    3: "😐 Neutral",
+    2: "😕 Unpleasant",
+    1: "😞 Very unpleasant",
 }
 AROUSAL_LABELS = {
-    1: "Very low",
-    2: "Low",
-    3: "Medium",
-    4: "High",
-    5: "Very high",
+    5: "⚡ Very high",
+    4: "🔥 High",
+    3: "➖ Medium",
+    2: "🧘 Low",
+    1: "😴 Very low",
 }
 
 PROMPT_TEXT = (
@@ -40,7 +40,6 @@ class PendingMood:
     entry_id: str
     chat_id: int
     message_id: int
-    prompt_sent_at: datetime
     valence: int | None = None
     arousal: int | None = None
     timeout_job: object | None = field(default=None, repr=False)
@@ -61,11 +60,11 @@ def _build_keyboard(entry_id: str, valence: int | None, arousal: int | None) -> 
     for n in range(5, 0, -1):
         rows.append([
             InlineKeyboardButton(
-                mark(f"{n} — {VALENCE_LABELS[n]}", valence == n),
+                mark(VALENCE_LABELS[n], valence == n),
                 callback_data=f"val:{entry_id}:{n}",
             ),
             InlineKeyboardButton(
-                mark(f"{n} — {AROUSAL_LABELS[n]}", arousal == n),
+                mark(AROUSAL_LABELS[n], arousal == n),
                 callback_data=f"aro:{entry_id}:{n}",
             ),
         ])
@@ -78,8 +77,7 @@ async def send_mood_check(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def _send_mood_prompt(context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:
-    prompt_sent_at = diary_svc.now()
-    entry_id = prompt_sent_at.strftime("m%Y%m%d%H%M%S")
+    entry_id = diary_svc.now().strftime("m%Y%m%d%H%M%S")
 
     markup = _build_keyboard(entry_id, None, None)
     message = await context.bot.send_message(chat_id=chat_id, text=PROMPT_TEXT, reply_markup=markup)
@@ -88,7 +86,6 @@ async def _send_mood_prompt(context: ContextTypes.DEFAULT_TYPE, chat_id: int) ->
         entry_id=entry_id,
         chat_id=chat_id,
         message_id=message.message_id,
-        prompt_sent_at=prompt_sent_at,
     )
     _pending_store(context)[entry_id] = pending
 
@@ -157,11 +154,9 @@ async def handle_mood_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def _finalize_complete(context: ContextTypes.DEFAULT_TYPE, pending: PendingMood) -> None:
-    responded_at = diary_svc.now()
     diary_svc.append_mood_entry(
         entry_id=pending.entry_id,
-        prompt_sent_at=pending.prompt_sent_at,
-        responded_at=responded_at,
+        timestamp=diary_svc.now(),
         valence=pending.valence,
         arousal=pending.arousal,
         status="complete",
@@ -203,12 +198,10 @@ async def _expire_mood(context: ContextTypes.DEFAULT_TYPE) -> None:
 
     has_any = pending.valence is not None or pending.arousal is not None
     status = "partial" if has_any else "missed"
-    responded_at = diary_svc.now() if has_any else None
 
     diary_svc.append_mood_entry(
         entry_id=pending.entry_id,
-        prompt_sent_at=pending.prompt_sent_at,
-        responded_at=responded_at,
+        timestamp=diary_svc.now(),
         valence=pending.valence,
         arousal=pending.arousal,
         status=status,

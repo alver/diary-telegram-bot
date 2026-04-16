@@ -104,7 +104,7 @@ All variables live in `.env` (see `.env.example`).
 | `BOT_TOKEN` | — | Telegram bot token from @BotFather |
 | `ALLOWED_USER_IDS` | empty (anyone) | Comma-separated user IDs allowed to interact |
 | `DIARY_CHAT_ID` | — | Chat that receives scheduled mood check-ins |
-| `AUDIO_DIR` / `ARCHIVE_DIR` / `DIARY_DIR` / `MOOD_CSV` / `MOOD_ENTRIES_CSV` / `SLEEP_CSV` | `storage/...` | Output paths (`MOOD_CSV` is legacy, kept for back-compat and no longer written) |
+| `AUDIO_DIR` / `ARCHIVE_DIR` / `DIARY_DIR` / `MOOD_CSV` / `SLEEP_CSV` | `storage/...` | Output paths |
 | `TRANSCRIPTION_SERVICE` | `whisper_local` | Backend name registered in `services/transcription/__init__.py` |
 | `WHISPER_MODEL_PATH` | — | Path to a ggml model file |
 | `WHISPER_EXE` | `whisper` | whisper.cpp CLI binary (use `whisper.exe` on Windows) |

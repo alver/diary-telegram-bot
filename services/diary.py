@@ -34,18 +34,11 @@ def append_audio(timestamp: datetime, transcript: str, file_path: str) -> None:
     _write_entry(timestamp, body)
 
 
-def append_mood(timestamp: datetime, level: int, label: str) -> None:
-    body = f"**Mood check-in:** {label} ({level}/5)"
-    _write_entry(timestamp, body)
-    _append_mood_csv(timestamp, level, label)
-
-
 # ---------------- 2-D mood (valence + arousal) ----------------
 
 MOOD_ENTRY_FIELDS = [
     "entry_id",
-    "prompt_sent_at",
-    "responded_at",
+    "timestamp",
     "valence",
     "arousal",
     "status",
@@ -54,8 +47,7 @@ MOOD_ENTRY_FIELDS = [
 
 def append_mood_entry(
     entry_id: str,
-    prompt_sent_at: datetime,
-    responded_at: datetime | None,
+    timestamp: datetime,
     valence: int | None,
     arousal: int | None,
     status: str,
@@ -63,12 +55,11 @@ def append_mood_entry(
     """Write a 2-D mood entry to the mood_entries CSV. Also writes a human-readable
     line to the daily markdown when the entry is complete or partial."""
     _append_csv(
-        config.MOOD_ENTRIES_CSV,
+        config.MOOD_CSV,
         MOOD_ENTRY_FIELDS,
         {
             "entry_id": entry_id,
-            "prompt_sent_at": prompt_sent_at.isoformat(),
-            "responded_at": responded_at.isoformat() if responded_at else "",
+            "timestamp": timestamp.isoformat(),
             "valence": valence if valence is not None else "",
             "arousal": arousal if arousal is not None else "",
             "status": status,
@@ -76,10 +67,9 @@ def append_mood_entry(
     )
     if status == "missed":
         return
-    ts = responded_at or prompt_sent_at
     v = valence if valence is not None else "—"
     a = arousal if arousal is not None else "—"
-    _write_entry(ts, f"**Mood check-in:** pleasantness {v}/5, energy {a}/5 ({status})")
+    _write_entry(timestamp, f"**Mood check-in:** pleasantness {v}/5, energy {a}/5 ({status})")
 
 
 # ---------------- Sleep quality (PSQI component 1) ----------------
@@ -139,13 +129,3 @@ def _write_entry(timestamp: datetime, body: str) -> None:
         f.write(f"**{timestamp.strftime('%Y-%m-%d %H:%M')}**\n\n")
         f.write(f"{body}\n")
     logger.info("Diary entry written to %s", md_path)
-
-
-def _append_mood_csv(timestamp: datetime, level: int, label: str) -> None:
-    os.makedirs(os.path.dirname(os.path.abspath(config.MOOD_CSV)), exist_ok=True)
-    file_exists = os.path.exists(config.MOOD_CSV)
-    with open(config.MOOD_CSV, "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(["timestamp", "level", "label"])
-        writer.writerow([timestamp.isoformat(), level, label])
