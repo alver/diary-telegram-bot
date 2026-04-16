@@ -156,7 +156,7 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & user_filter, handle_text))
 
     # Callback handlers (each enforces the allow-list internally).
-    app.add_handler(CallbackQueryHandler(handle_mood_callback, pattern=r"^(val|aro|noop):"))
+    app.add_handler(CallbackQueryHandler(handle_mood_callback, pattern=r"^(pls|nrg|noop):"))
     app.add_handler(CallbackQueryHandler(handle_sleep_callback, pattern=r"^slp:"))
 
     # Error handler
